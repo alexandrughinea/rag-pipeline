@@ -1,0 +1,15 @@
+meta {
+  name: Upload Document
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/upload
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  file: @file(/Volumes/Work/@experiments/python/rag-pipeline/example/example_research_paper.pdf)
+}

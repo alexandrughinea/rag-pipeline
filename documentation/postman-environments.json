@@ -1,0 +1,22 @@
+{
+  "dev": {
+    "name": "Development",
+    "values": [
+      {
+        "key": "baseUrl",
+        "value": "http://localhost:8000",
+        "type": "default"
+      }
+    ]
+  },
+  "prod": {
+    "name": "Production",
+    "values": [
+      {
+        "key": "baseUrl",
+        "value": "https://your-production-url.com",
+        "type": "default"
+      }
+    ]
+  }
+}
