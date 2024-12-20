@@ -6,11 +6,11 @@ from typing import List
 
 class QueryHistory:
     def __init__(self, query_history_db="./query_history.db"):
-
         persistence_dir = os.getenv("VECTOR_STORAGE_DIR", "./storage")
         persistence_dir_path = Path(persistence_dir)
         persistence_dir_path.mkdir(exist_ok=True)
         query_history_db = os.getenv("VECTOR_QUERY_HISTORY_DB", query_history_db)
+
         self.db_path = persistence_dir + "/" + query_history_db
         self._init_db()
 

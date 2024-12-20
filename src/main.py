@@ -1,19 +1,19 @@
 import os
 import tempfile
 import time
+from typing import Optional
 
 from embeddings_generator import EmbeddingsGenerator
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from llm_handler import LLMHandler
+from llm.llm_handler import LLMHandler
+from processors.file_processor import FileProcessor
 from pydantic import BaseModel
-
-from src.processors.file_processor import FileProcessor
-from src.query.query_engine import QueryEngine
-from src.query.query_history import QueryHistory
-from src.vector_store.vector_store import VectorStore
+from query.query_engine import QueryEngine
+from query.query_history import QueryHistory
+from vector_store.vector_store import VectorStore
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -21,6 +21,7 @@ templates = Jinja2Templates(directory="templates")
 # Define request model
 class QueryRequest(BaseModel):
     query: str
+    conversation_id: Optional[int] = None
 
 # Initialize components
 llm_handler = LLMHandler()
@@ -72,7 +73,9 @@ async def upload_file(file: UploadFile = File(...)):
 
         vector_store.add_embeddings(embeddings, chunks, source_info)
 
-        return {"message": "Document processed successfully"}
+        return {
+            "message": f"Original filename ({file.filename}) was processed successfully."
+        }
     finally:
         os.unlink(temp_path)
 
@@ -104,7 +107,7 @@ async def query_stream(request: QueryRequest):
         if not results["documents"]:
             return StreamingResponse(
                 iter(["No relevant documents found for your query."]),
-                media_type
+                media_type=media_type,
             )
 
         async def generate():
@@ -125,13 +128,65 @@ async def query_stream(request: QueryRequest):
 
         return StreamingResponse(
             generate(),
-            media_type
+            media_type=media_type
         )
 
     except Exception as e:
         return StreamingResponse(
             iter([f"Error: {str(e)}"]),
-            media_type="text/event-stream"
+            media_type=media_type
+        )
+
+@app.post("/query/conversation-stream")
+async def query_conversation_stream(request: QueryRequest):
+    """Stream query results as a conversation stream."""
+    start_time = time.time()
+    media_type = "text/event-stream"
+
+    try:
+        # Generate embeddings for query
+        embeddings, _ = embeddings_generator.generate_embeddings(request.query)
+
+        # Get relevant documents
+        results = vector_store.query(embeddings[0], n_results=5)
+
+        # If no relevant documents found
+        if not results["documents"]:
+            return StreamingResponse(
+                iter(["No relevant documents found for your query."]),
+                media_type=media_type
+            )
+
+        async def generate():
+            prepend_conversation_id = True
+            async for token in llm_handler.generate_conversation_stream(
+                    query=request.query,
+                    context=results["documents"],
+                    conversation_id=request.conversation_id
+            ):
+                if prepend_conversation_id:
+                    yield f"id: {request.conversation_id}\n\n"
+                    prepend_conversation_id = False
+                yield f"data: {token}\n\n"
+
+            # Record query after completion
+            duration = time.time() - start_time
+
+            query_history.add_query(
+                query=request.query,
+                num_results=len(results["documents"]),
+                query_response_time=duration
+            )
+
+        return StreamingResponse(
+            generate(),
+            media_type=media_type
+        )
+
+    except Exception as e:
+        return StreamingResponse(
+            iter([f"Error: {str(e)}"]),
+            media_type=media_type
         )
 
 @app.get("/history")

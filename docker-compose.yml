@@ -7,9 +7,11 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./models:/app/models
       - ./storage:/app/storage
     environment:
+      - PYTHONUNBUFFERED=1
+      - CHROMA_PATH=/app/storage/chroma.sqlite3
       - API_HOST=0.0.0.0
       - API_PORT=8000
-      - PYTHONUNBUFFERED=1
+volumes:
+  storage:

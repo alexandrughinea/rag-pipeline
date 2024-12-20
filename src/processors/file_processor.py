@@ -5,7 +5,8 @@ import pytesseract
 from docx import Document
 from PIL import Image
 from PyPDF2 import PdfReader
-from video_processor import VideoProcessor
+
+from .video_processor import VideoProcessor
 
 
 class FileProcessor:
