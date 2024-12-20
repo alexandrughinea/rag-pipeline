@@ -37,6 +37,13 @@ class VectorStore:
 
     def add_embeddings(self, embeddings, document_chunks, source_info):
         """Add document chunks and their embeddings with proper metadata."""
+        if len(embeddings) == 0 or len(document_chunks) == 0:
+            raise ValueError("Cannot add empty embeddings or chunks to vector store")
+
+        if len(embeddings) != len(document_chunks):
+            raise ValueError(f"Number of embeddings ({len(embeddings)}) must match number of chunks ({len(document_chunks)})")
+
+
         metadatas = [{
                 "source": source_info["filename"],
                 "file_type": source_info["file_type"],

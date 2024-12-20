@@ -15,7 +15,7 @@ class EmbeddingsGenerator:
         chunks = self._chunk_text(text)
         return self.model.encode(chunks), chunks
 
-    def _chunk_text(self, text, chunk_size=500):
+    def _chunk_text(self, text):
         """Split text into chunks of approximately equal size."""
         return textwrap.wrap(text,
                              width=self.chunk_size,
