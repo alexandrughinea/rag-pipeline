@@ -43,7 +43,6 @@ class VectorStore:
         if len(embeddings) != len(document_chunks):
             raise ValueError(f"Number of embeddings ({len(embeddings)}) must match number of chunks ({len(document_chunks)})")
 
-
         metadatas = [{
                 "source": source_info["filename"],
                 "file_type": source_info["file_type"],

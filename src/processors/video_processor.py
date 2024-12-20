@@ -91,18 +91,29 @@ class VideoProcessor:
         texts = []
         for i, frame in enumerate(frames):
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            denoised = cv2.fastNlMeansDenoising(gray)
 
-            data = pytesseract.image_to_data(thresh, output_type=pytesseract.Output.DICT)
+            # Improve contrast
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            enhanced = clahe.apply(denoised)
+
+            # Get OCR data
+            data = pytesseract.image_to_data(enhanced, output_type=pytesseract.Output.DICT)
+
+            # Skip frames with no text
+            if all(text == '' for text in data['text']):
+                print(f"Skipping frame {i} - no text detected")
+                continue
 
             frame_text = []
-            for i, conf in enumerate(data['conf']):
+            for j, conf in enumerate(data['conf']):
                 if conf > self.min_text_confidence:
-                    text = data['text'][i].strip()
-                    if text:
+                    text = data['text'][j].strip()
+                    if text and len(text) > 1:  # Skip single characters
                         frame_text.append(text)
 
-            if frame_text:
+            if frame_text:  # Only add frames that have valid text
                 texts.append(' '.join(frame_text))
 
         return '\n'.join(texts)
+
