@@ -64,6 +64,7 @@ async def upload_file(file: UploadFile = File(...)):
         # Generate embeddings
         embeddings, chunks = embeddings_generator.generate_embeddings(text)
 
+        print(f"Embeddings: {embeddings}")
         # Store in vector database
         # Add to vector store
         source_info = {
