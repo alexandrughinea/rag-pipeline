@@ -20,7 +20,7 @@ class EmbeddingsGenerator:
             raise ValueError("Text chunking resulted in no chunks")
 
         print(f"Generating embeddings for {len(chunks)} chunks")
-        print(f"First chunk preview: {chunks[0][:100]}...")  # Debug print
+        print(f"First chunk preview: {chunks[0][:100]}...")
 
         embeddings = self.model.encode(chunks)
 
@@ -28,7 +28,7 @@ class EmbeddingsGenerator:
         if embeddings.size == 0:
             raise ValueError("Generated embeddings are empty")
 
-        print(f"Generated embeddings shape: {embeddings.shape}")  # Debug print
+        print(f"Generated embeddings shape: {embeddings.shape}")
 
         return embeddings, chunks
 
@@ -44,5 +44,6 @@ class EmbeddingsGenerator:
         # Filter out empty chunks
         chunks = [chunk for chunk in chunks if chunk.strip()]
 
-        print(f"Created {len(chunks)} chunks")  # Debug print
+        print(f"Created {len(chunks)} chunks")
+
         return chunks

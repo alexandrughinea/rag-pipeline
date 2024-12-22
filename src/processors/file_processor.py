@@ -12,9 +12,11 @@ from .video_processor import VideoProcessor
 class FileProcessor:
     def __init__(self):
         self.supported_formats = {
+            # Raw text:
+            ".txt": self._process_raw_text,
+            ".md": self._process_raw_text,
+            ".xml": self._process_raw_text,
             # Documents:
-            ".md": self._process_markup,
-            ".xml": self._process_markup,
             ".csv": self._process_csv,
             ".pdf": self._process_pdf,
             ".docx": self._process_docx,
@@ -36,8 +38,7 @@ class FileProcessor:
 
         return self.supported_formats[ext](file_path)
 
-
-    def _process_markup(self, file_path: str) -> str:
+    def _process_raw_text(self, file_path: str) -> str:
         """Process markup files (XML, Markdown) and extract text."""
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
