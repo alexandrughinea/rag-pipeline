@@ -3,9 +3,9 @@ import os
 import pandas as pd
 import pytesseract
 from docx import Document
-from PIL import Image
 from PyPDF2 import PdfReader
 
+from .image_processor import ImageProcessor
 from .video_processor import VideoProcessor
 
 
@@ -13,6 +13,8 @@ class FileProcessor:
     def __init__(self):
         self.supported_formats = {
             # Documents:
+            ".md": self._process_markup,
+            ".xml": self._process_markup,
             ".csv": self._process_csv,
             ".pdf": self._process_pdf,
             ".docx": self._process_docx,
@@ -34,6 +36,15 @@ class FileProcessor:
 
         return self.supported_formats[ext](file_path)
 
+
+    def _process_markup(self, file_path: str) -> str:
+        """Process markup files (XML, Markdown) and extract text."""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            raise ValueError(f"Error processing markup file: {str(e)}")
+
     def _process_csv(self, file_path) -> str:
         df = pd.read_csv(file_path)
         return df.to_string()
@@ -51,8 +62,10 @@ class FileProcessor:
         return "\n".join([paragraph.text for paragraph in doc.paragraphs])
 
     def _process_image(self, file_path) -> str:
-        image = Image.open(file_path)
-        return pytesseract.image_to_string(image)
+        image_processor = ImageProcessor()
+        processed_image = image_processor.process_image(file_path)
+
+        return pytesseract.image_to_string(processed_image)
 
     def _process_video(self, file_path: str) -> str:
         # 1 frame per second for 30fps video

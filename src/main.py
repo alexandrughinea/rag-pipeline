@@ -13,6 +13,7 @@ from processors.file_processor import FileProcessor
 from pydantic import BaseModel
 from query.query_engine import QueryEngine
 from query.query_history import QueryHistory
+from starlette.responses import JSONResponse
 from vector_store.vector_store import VectorStore
 
 app = FastAPI()
@@ -58,8 +59,15 @@ async def upload_file(file: UploadFile = File(...)):
 
     try:
         print(f"Temp path: {temp_path}")
-        # Process document
+
+        # Process file
         text = doc_processor.process_file(temp_path)
+
+        if not text:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "No text extracted from file"}
+            )
 
         # Generate embeddings
         embeddings, chunks = embeddings_generator.generate_embeddings(text)
@@ -74,9 +82,19 @@ async def upload_file(file: UploadFile = File(...)):
 
         vector_store.add_embeddings(embeddings, chunks, source_info)
 
-        return {
-            "message": f"Original filename ({file.filename}) was processed successfully."
-        }
+        return JSONResponse(
+            status_code=200,
+            content={ "message": f"Original file ({file.filename}) was processed successfully."}
+        )
+
+    except Exception as e:
+        print(f"Error while processing file: {str(e)}")
+
+        return JSONResponse(
+            status_code=500,
+            content={ "error": f"Something went wrong while uploading file ({file.filename})!"}
+        )
+
     finally:
         os.unlink(temp_path)
 
@@ -88,8 +106,14 @@ async def query(request: QueryRequest):
 
     results = query_engine.query(request.query, num_results)
     query_response_time = time.time() - start_time
+
     query_history.add_query(request.query, num_results, query_response_time)
-    return results
+
+    return JSONResponse(
+        status_code=200,
+        content={ "data": results}
+    )
+
 
 @app.post("/query/stream")
 async def query_stream(request: QueryRequest):
@@ -193,7 +217,12 @@ async def query_conversation_stream(request: QueryRequest):
 @app.get("/history")
 async def get_history(limit: int = 10):
     """Get recent query history."""
-    return query_history.get_recent_queries(limit)
+    results = query_history.get_recent_queries(limit=limit)
+
+    return JSONResponse(
+        status_code=200,
+        content={ "data": results}
+    )
 
 @app.get("/")
 async def get_index_page(request: Request):
