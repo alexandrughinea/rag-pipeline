@@ -1,8 +1,8 @@
 import os
 import tempfile
 import time
-from typing import Optional
 
+from api.request_types import QueryBaseRequest, QueryConversationRequest
 from embeddings_generator import EmbeddingsGenerator
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
@@ -10,19 +10,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from llm.llm_handler import LLMHandler
 from processors.file_processor import FileProcessor
-from pydantic import BaseModel
 from query.query_engine import QueryEngine
 from query.query_history import QueryHistory
 from starlette.responses import JSONResponse
+from utils import clamp
 from vector_store.vector_store import VectorStore
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
-# Define request model
-class QueryRequest(BaseModel):
-    query: str
-    conversation_id: Optional[int] = None
 
 # Initialize components
 llm_handler = LLMHandler()
@@ -51,7 +46,7 @@ async def upload_file(file: UploadFile = File(...)):
 
     print(f"Using suffix: {suffix}")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+    with tempfile.NamedTemporaryFile(delete=True, suffix=suffix) as temp_file:
         content = await file.read()
         temp_file.write(content)
         temp_path = temp_file.name
@@ -97,25 +92,25 @@ async def upload_file(file: UploadFile = File(...)):
     finally:
         os.unlink(temp_path)
 
-@app.post("/query")
-async def query(request: QueryRequest):
+@app.get("/search")
+async def search(query: str, limit: int = 5):
     """Query the RAG system."""
     start_time = time.time()
-    num_results = 5
+    num_results = clamp(limit)
 
-    results = query_engine.query(request.query, num_results)
+    results = query_engine.query(query, num_results)
     query_response_time = time.time() - start_time
 
-    query_history.add_query(request.query, num_results, query_response_time)
+    query_history.add_query(query, limit, query_response_time)
 
     return JSONResponse(
         status_code=200,
-        content={ "data": results}
+        content={ "data": results }
     )
 
 
 @app.post("/query/stream")
-async def query_stream(request: QueryRequest):
+async def query_stream(request: QueryBaseRequest):
     """Stream query results."""
     start_time = time.time()
     media_type = "text/event-stream"
@@ -162,7 +157,7 @@ async def query_stream(request: QueryRequest):
         )
 
 @app.post("/query/conversation-stream")
-async def query_conversation_stream(request: QueryRequest):
+async def query_conversation_stream(request: QueryConversationRequest):
     """Stream query results as a conversation stream."""
     start_time = time.time()
     media_type = "text/event-stream"
@@ -216,11 +211,12 @@ async def query_conversation_stream(request: QueryRequest):
 @app.get("/history")
 async def get_history(limit: int = 10):
     """Get recent query history."""
-    results = query_history.get_recent_queries(limit=limit)
+    num_results = clamp(limit)
+    results = query_history.get_recent_queries(limit=num_results)
 
     return JSONResponse(
         status_code=200,
-        content={ "data": results}
+        content={ "data": results }
     )
 
 @app.get("/")
