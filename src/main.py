@@ -55,7 +55,6 @@ async def upload_file(file: UploadFile = File(...)):
         content = await file.read()
         temp_file.write(content)
         temp_path = temp_file.name
-        print(f"Temp path: {temp_path}")  # Debug print
 
     try:
         print(f"Temp path: {temp_path}")

@@ -32,44 +32,57 @@ class FileProcessor:
             ".mpeg": self._process_video,
         }
 
-    def process_file(self, file_path):
+    def process_file(self, file_path: str):
         """Process a file and return extracted text."""
         ext = os.path.splitext(file_path)[1].lower()
 
         return self.supported_formats[ext](file_path)
 
     def _process_raw_text(self, file_path: str) -> str:
-        """Process markup files (XML, Markdown) and extract text."""
+        """Process raw text files (txt, XML, Markdown) and extract text."""
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
-            raise ValueError(f"Error processing markup file: {str(e)}")
+            raise ValueError(f"Error processing raw text file: {str(e)}")
 
-    def _process_csv(self, file_path) -> str:
-        df = pd.read_csv(file_path)
-        return df.to_string()
+    def _process_csv(self, file_path: str) -> str:
+        """Process CSV text files and extract text."""
+        try:
+            df = pd.read_csv(file_path)
+            return df.to_string()
+        except Exception as e:
+            raise ValueError(f"Error processing CSV file: {str(e)}")
 
-    def _process_pdf(self, file_path) -> str:
-        text = ""
-        with open(file_path, "rb") as file:
-            pdf_reader = PdfReader(file)
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-        return text
+    def _process_pdf(self, file_path: str) -> str:
+        try:
+            text = ""
+            with open(file_path, "rb") as file:
+                pdf_reader = PdfReader(file)
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+            return text
+        except Exception as e:
+            raise ValueError(f"Error processing PDF file: {str(e)}")
 
-    def _process_docx(self, file_path) -> str:
+    def _process_docx(self, file_path: str) -> str:
         doc = Document(file_path)
         return "\n".join([paragraph.text for paragraph in doc.paragraphs])
 
-    def _process_image(self, file_path) -> str:
-        image_processor = ImageProcessor()
-        processed_image = image_processor.process_image(file_path)
+    def _process_image(self, file_path: str) -> str:
+        try:
+            image_processor = ImageProcessor()
+            processed_image = image_processor.process_image(file_path)
 
-        return pytesseract.image_to_string(processed_image)
+            return pytesseract.image_to_string(processed_image)
+        except Exception as e:
+            raise ValueError(f"Error processing image: {str(e)}")
 
     def _process_video(self, file_path: str) -> str:
-        # 1 frame per second for 30fps video
-        video_processor = VideoProcessor(sample_rate=30)
-        frames = video_processor.extract_frames(file_path)
-        return video_processor.process_frames(frames)
+        try:
+            # 1 frame per second for 30fps video
+            video_processor = VideoProcessor()
+            frames = video_processor.extract_frames(file_path)
+            return video_processor.process_frames(frames)
+        except Exception as e:
+            raise ValueError(f"Error processing video: {str(e)}")
