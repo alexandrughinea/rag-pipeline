@@ -34,6 +34,33 @@ A production-ready Retrieval Augmented Generation (RAG) pipeline that processes 
 - Configurable inference parameters
 - Conversation history tracking
 
+### Simplified Diagram
+
+```mermaid
+graph LR
+  upload["/upload"] --> FP[FileProcessor]
+  FP --> EG[EmbeddingsGenerator]
+  EG --> ChromaDB
+
+  search["/search"] --> ChromaDB
+
+  query["/query"] --> LLM[LLMHandler]
+  LLM --> ChromaDB
+  LLM --> SQLite
+
+  stream["/query/conversation-stream"] --> LLM
+
+  history["/history"] --> SQLite
+
+  classDef endpoint fill:#e1bee7,stroke:#333,stroke-width:2px
+  classDef processor fill:#c8e6c9,stroke:#333,stroke-width:2px
+  classDef storage fill:#bbdefb,stroke:#333,stroke-width:2px
+
+  class upload,search,query,stream,history endpoint
+  class FP,EG,LLM processor
+  class ChromaDB,SQLite storage
+```
+
 ## Installation
 
 1. Create a virtual environment:

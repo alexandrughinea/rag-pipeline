@@ -120,7 +120,7 @@ async def query_stream(request: QueryBaseRequest):
         embeddings, _ = embeddings_generator.generate_embeddings(request.query)
 
         # Get relevant documents
-        results = vector_store.query(embeddings[0], n_results=5)
+        results = vector_store.query(embeddings[0], request.n_results)
 
         # If no relevant documents found
         if not results["documents"]:
@@ -167,7 +167,7 @@ async def query_conversation_stream(request: QueryConversationRequest):
         embeddings, _ = embeddings_generator.generate_embeddings(request.query)
 
         # Get relevant documents
-        results = vector_store.query(embeddings[0], n_results=5)
+        results = vector_store.query(embeddings[0], request.n_results)
 
         # If no relevant documents found
         if not results["documents"]:
