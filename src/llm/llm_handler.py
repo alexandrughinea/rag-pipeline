@@ -1,6 +1,6 @@
 from typing import AsyncIterator
 
-from ctransformers import AutoConfig, AutoModelForCausalLM
+from transformers import AutoConfig, AutoModelForCausalLM
 
 from .llm_config import LLMConfig
 from .llm_history import LLMHistory
@@ -30,6 +30,9 @@ class LLMHandler:
             model_file=self.config.model_file,
             config=config,
         )
+
+        print(f"Loaded model: {self.model.model_type}")
+        print(f"Loaded model path: {self.model.model_path}")
 
         self.history = LLMHistory()
         self.behaviour_context = "Based on the following context, answer the question."
