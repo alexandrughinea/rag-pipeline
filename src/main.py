@@ -3,6 +3,7 @@ import tempfile
 import time
 
 from api.request_types import QueryBaseRequest, QueryConversationRequest
+from dotenv import load_dotenv
 from embeddings_generator import EmbeddingsGenerator
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
@@ -15,6 +16,9 @@ from query.query_history import QueryHistory
 from starlette.responses import JSONResponse
 from utils import clamp
 from vector_store.vector_store import VectorStore
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -105,7 +109,10 @@ async def search(query: str, limit: int = 5):
 
     return JSONResponse(
         status_code=200,
-        content={ "data": results }
+        content={
+            "data": results,
+            "query": query,
+        }
     )
 
 
@@ -226,10 +233,6 @@ async def get_index_page(request: Request):
 if __name__ == "__main__":
 
     import uvicorn
-    from dotenv import load_dotenv
-
-    # Load environment variables from .env file
-    load_dotenv()
 
     # Get values with defaults
     host = os.getenv("API_HOST", "0.0.0.0")
