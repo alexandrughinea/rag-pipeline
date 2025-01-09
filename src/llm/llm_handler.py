@@ -1,6 +1,8 @@
+import os
+from pathlib import Path
 from typing import AsyncIterator
 
-from transformers import AutoConfig, AutoModelForCausalLM
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .llm_config import LLMConfig
 from .llm_history import LLMHistory
@@ -12,32 +14,34 @@ class LLMHandler:
         self.config = LLMConfig()
 
         # Ensure model exists
-        if not self.config.model_path_or_repo_id:
-            raise Exception(f"Model not found: {self.config.model_path_or_repo_id}")
+        if not self.config.model_pretrained_model_name_or_path:
+            raise Exception(f"Model not found: {self.config.model_pretrained_model_name_or_path}")
+
+        # Create cache dir
+        cache_dir_dir_path = Path(self.config.model_cache_dir)
+        cache_dir_dir_path.mkdir(exist_ok=True)
 
         # Create config first
         config = AutoConfig.from_pretrained(
-            self.config.model_path_or_repo_id,
-            #gpu_layers=self.config.model_gpu_layers,
+            self.config.model_pretrained_model_name_or_path,
             threads=self.config.model_cpu_threads,
+            cache_dir=self.config.model_cache_dir,
             context_length=self.config.model_context_length,
         )
 
-        # Use config when loading model
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.config.model_path_or_repo_id,
-            model_type=self.config.model_type,
-            model_file=self.config.model_file,
-            config=config,
+        # Config not needed here
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.config.model_pretrained_model_name_or_path,
         )
 
-        print(f"Loaded model: {self.model.model_type}")
-        print(f"Loaded model path: {self.model.model_path}")
+        # Config is needed here
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.config.model_pretrained_model_name_or_path,
+            config=config,
+            token=os.getenv("HF_TOKEN", None)
+        )
 
         self.history = LLMHistory()
-        self.behaviour_context = "Based on the following context, answer the question."
-        "If the context doesn't contain relevant information,\n"
-        "just respond that you could not find anything related.\n\n"
 
     async def generate_stream(self, query: str, context: list[str]) -> AsyncIterator[str]:
         """Stream tokens from the model."""
@@ -47,8 +51,8 @@ class LLMHandler:
 
         context_text = "\n".join(context)
 
-        prompt = (
-            f"Behaviour: {self.behaviour_context}\n\n"
+        prompt = self.tokenizer(
+            f"Behaviour: {self.config.model_behaviour_context}\n\n"
             f"Context:\n{context_text}\n\n"
             f"Question: {query}\n\n"
             "Answer:"
@@ -66,6 +70,7 @@ class LLMHandler:
         except Exception as e:
             yield f"\nError during generation: {str(e)}"
 
+   
     async def generate_conversation_stream(self, query: str, context: list, conversation_id: int = None) -> AsyncIterator[str]:
         """Stream tokens from the model in a conversation context."""
 
@@ -85,8 +90,8 @@ class LLMHandler:
             f"{message['role']}: {message['content']}" for message in conversation
         ])
 
-        prompt = (f"Previous conversation:\n{conversation_context}\n\n"
-                  f"Behaviour: {self.behaviour_context}\n\n"
+        prompt = self.tokenizer(f"Previous conversation:\n{conversation_context}\n\n"
+                  f"Behaviour: {self.config.model_behaviour_context}\n\n"
                   f"Context:\n{context}\n\n"
                   f"User: {query}\n"
                   f"Assistant:")
