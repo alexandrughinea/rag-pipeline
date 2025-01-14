@@ -50,12 +50,16 @@ async def upload_file(file: UploadFile = File(...)):
 
     print(f"Using suffix: {suffix}")
 
-    with tempfile.NamedTemporaryFile(delete=True, suffix=suffix) as temp_file:
-        content = await file.read()
-        temp_file.write(content)
-        temp_path = temp_file.name
-
+    # Create temporary file
+    temp_fd, temp_path = tempfile.mkstemp(suffix=suffix)
     try:
+        # Read content from upload
+        content = await file.read()
+
+        # Write content to temporary file
+        with os.fdopen(temp_fd, 'wb') as temp_file:
+            temp_file.write(content)
+
         print(f"Temp path: {temp_path}")
 
         # Process file
@@ -71,8 +75,8 @@ async def upload_file(file: UploadFile = File(...)):
         embeddings, chunks = embeddings_generator.generate_embeddings(text)
 
         print(f"Embeddings: {embeddings}")
+
         # Store in vector database
-        # Add to vector store
         source_info = {
             "filename": file.filename,
             "file_type": suffix[1:],
@@ -82,18 +86,18 @@ async def upload_file(file: UploadFile = File(...)):
 
         return JSONResponse(
             status_code=200,
-            content={ "message": f"Original file ({file.filename}) was processed successfully."}
+            content={"message": f"Original file ({file.filename}) was processed successfully."}
         )
 
     except Exception as e:
         print(f"Error while processing file: {str(e)}")
-
         return JSONResponse(
             status_code=500,
-            content={ "error": f"Something went wrong while uploading file ({file.filename})!"}
+            content={"error": f"Something went wrong while uploading file ({file.filename})!"}
         )
 
     finally:
+        # Clean up the temporary file
         os.unlink(temp_path)
 
 @app.get("/search")

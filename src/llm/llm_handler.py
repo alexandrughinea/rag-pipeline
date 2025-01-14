@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import AsyncIterator
 
+import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .llm_config import LLMConfig
@@ -55,18 +56,33 @@ class LLMHandler:
             f"Behaviour: {self.config.model_behaviour_context}\n\n"
             f"Context:\n{context_text}\n\n"
             f"Question: {query}\n\n"
-            "Answer:"
-        )
+            "Answer:",
+            return_tensors="pt")
+
+
 
         try:
-            for token in self.model(
-                    prompt,
+            # Get the input_ids from the tokenized prompt
+            input_ids = prompt['input_ids']
+
+            # Create attention mask - all 1s since we want to attend to all tokens
+            attention_mask = torch.ones(input_ids.shape, dtype=torch.long)
+
+            for outputs in self.model.generate(
+                    input_ids,
+                    attention_mask=attention_mask,
                     max_new_tokens=self.config.model_max_new_tokens,
                     temperature=self.config.model_temperature,
                     top_p=self.config.model_top_p,
-                    stream=True
+                    stream=True,
+                    do_sample=True,  # Enable sampling
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
             ):
-                yield token
+                # Get the last token and decode it
+                if len(outputs) > 0:
+                    token = outputs[-1]
+                    yield self.tokenizer.decode(token, skip_special_tokens=True)
         except Exception as e:
             yield f"\nError during generation: {str(e)}"
 
@@ -94,7 +110,7 @@ class LLMHandler:
                   f"Behaviour: {self.config.model_behaviour_context}\n\n"
                   f"Context:\n{context}\n\n"
                   f"User: {query}\n"
-                  f"Assistant:")
+                                f"Assistant:", return_tensors="pt")
 
         self.history.add_message(conversation_id, "user", query)
 
