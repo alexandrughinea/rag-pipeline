@@ -416,8 +416,7 @@
             if (state.isSidebarOpen) {
                 // Fetch history when opening sidebar
                 try {
-                    const history = await apiService.fetchHistory();
-                    state.history = history;
+                    state.history = await apiService.fetchHistory();
                     updateHistoryUI();
                 } catch (error) {
                     console.error('Error fetching history:', error);
@@ -508,7 +507,8 @@
 
         const loadHistoryItem = (index) => {
             const item = state.history[index];
-            elements.query.value = item.query;
+            elements.query.setAttribute('value', item.query)
+            elements.query.setAttribute('data-conversation-id', item.id)
             toggleSidebar();
         };
 
@@ -543,7 +543,8 @@
         const startStream = async () => {
             if (state.isStreaming) return;
 
-            const query = elements.query.value.trim();
+            const query = elements.query.getAttribute('value').trim()
+            const conversationId =   elements.query.getAttribute('data-conversation-id').trim()
 
             if (!query) {
                 return
@@ -555,7 +556,7 @@
             elements.response.classList.remove('visible');
 
             try {
-                const reader = await apiService.streamQuery(query);
+                const reader = await apiService.streamConversationQuery(query, conversationId);
                 const decoder = new TextDecoder();
 
                 while (true) {
@@ -643,7 +644,7 @@
     const apiService = (() => {
         const endpoints = {
             upload: '/upload',
-            stream: '/query/stream',
+            stream: '/query/conversation-stream',
             history: '/history'
         };
 
@@ -667,8 +668,7 @@
             try {
                 const response = await fetch(endpoints.history);
                 await handleApiError(response);
-                const history = await response.json();
-                return history;
+                return await response.json().then(({data}) => data)
             } catch (error) {
                 console.error('History fetch error:', error);
                 throw error;
@@ -697,7 +697,7 @@
         };
 
         // Stream query response
-        const streamQuery = async (query) => {
+        const streamConversationQuery = async (query, conversationId) => {
             try {
                 const response = await fetch(endpoints.stream, {
                     method: 'POST',
@@ -705,7 +705,10 @@
                         'Content-Type': 'application/json',
                         'Accept': 'text/event-stream'
                     },
-                    body: JSON.stringify({query})
+                    body: JSON.stringify({
+                        query,
+                        conversation_id: conversationId
+                    })
                 });
                 await handleApiError(response);
                 return response.body.getReader();
@@ -739,6 +742,10 @@
                     const lines = text.split('\n');
 
                     for (const line of lines) {
+                        if (line.startsWith('conversation_id: ')) {
+                           console.log("conversation_id", line.slice(17))
+                        }
+
                         if (line.startsWith('data: ')) {
                             onData(line.slice(6));
                         }
@@ -754,7 +761,7 @@
         return {
             fetchHistory,
             uploadFiles,
-            streamQuery,
+            streamConversationQuery,
             cancelStream,
             processStreamData
         };

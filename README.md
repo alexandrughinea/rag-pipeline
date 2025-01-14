@@ -11,7 +11,10 @@ A production-ready Retrieval Augmented Generation (RAG) pipeline that processes 
   - Markup files (XML)
   - Comma separated value files (CSV)
   - Images (with OCR)
-  - Videos (frame extraction and OCR)
+  - Videos 
+    - frame extraction and OCR
+    - xclip temporal attention (in development)
+  - Audio (in development)
 - Automatic chunking and preprocessing
 - Image cleaning and optimization
 - Video frame analysis with relevance filtering
@@ -98,6 +101,27 @@ LLM_MODEL_TYPE=llama
 LLM_MAX_TOKENS=512
 LLM_TEMPERATURE=0.7
 LLM_TOP_P=0.95
+```
+
+## Preparation
+
+### 1. Get your LLM model from huggingface
+
+```bash
+huggingface-cli login --token YOUR_ACCESS_TOKEN
+huggingface-cli download TheBloke/Llama-2-7B-Chat-GGUF
+```
+
+### 2. Update your .env with the chosen LLM model and type
+
+```env
+LLM_MODEL_PATH_OR_REPO_ID=TheBloke/Llama-2-7B-Chat-GGUF
+LLM_MODEL_TYPE=llama
+```
+
+### 3. Define the LLMs behaviour
+```env
+LLM_MODEL_BEHAVIOUR_CONTEXT=...
 ```
 
 ## Usage
