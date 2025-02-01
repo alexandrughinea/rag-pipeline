@@ -5,8 +5,9 @@ import time
 from api.request_types import QueryBaseRequest, QueryConversationRequest
 from dotenv import load_dotenv
 from embeddings_generator import EmbeddingsGenerator
-from fastapi import FastAPI, File, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Security, UploadFile
 from fastapi.responses import StreamingResponse
+from fastapi.security.api_key import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from llm.llm_handler import LLMHandler
@@ -19,6 +20,27 @@ from vector_store.vector_store import VectorStore
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Get API key from environment
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    raise ValueError("API_KEY environment variable must be set")
+
+# API key header
+api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
+
+async def get_api_key(api_key_header: str = Security(api_key_header)):
+    if not api_key_header:
+        raise HTTPException(
+            status_code=401,
+            detail="x-api-key header is missing"
+        )
+    if api_key_header != API_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API key"
+        )
+    return api_key_header
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -35,7 +57,10 @@ query_engine = QueryEngine(embeddings_generator, vector_store)
 
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    api_key: str = Depends(get_api_key)
+):
     """Upload and process a document."""
     # Debug print for clarity
     print(f"Original filename: {file.filename}")
@@ -121,7 +146,10 @@ async def search(query: str, limit: int = 5):
 
 
 @app.post("/query/stream")
-async def query_stream(request: QueryBaseRequest):
+async def query_stream(
+    request: QueryBaseRequest,
+    api_key: str = Depends(get_api_key)
+):
     """Stream query results."""
     start_time = time.time()
     media_type = "text/event-stream"
@@ -168,7 +196,10 @@ async def query_stream(request: QueryBaseRequest):
         )
 
 @app.post("/query/conversation-stream")
-async def query_conversation_stream(request: QueryConversationRequest):
+async def query_conversation_stream(
+    request: QueryConversationRequest,
+    api_key: str = Depends(get_api_key)
+):
     """Stream query results as a conversation stream."""
     start_time = time.time()
     media_type = "text/event-stream"
@@ -220,7 +251,10 @@ async def query_conversation_stream(request: QueryConversationRequest):
         )
 
 @app.get("/history")
-async def get_history(limit: int = 10):
+async def get_history(
+    limit: int = 10,
+    api_key: str = Depends(get_api_key)
+):
     """Get recent query history."""
     num_results = clamp(limit)
     results = query_history.get_recent_queries(limit=num_results)

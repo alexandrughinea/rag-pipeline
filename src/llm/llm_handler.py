@@ -52,14 +52,16 @@ class LLMHandler:
 
         context_text = "\n".join(context)
 
-        prompt = self.tokenizer(
-            f"Behaviour: {self.config.model_behaviour_context}\n\n"
-            f"Context:\n{context_text}\n\n"
-            f"Question: {query}\n\n"
-            "Answer:",
-            return_tensors="pt")
+        prompt =  self.tokenizer(f"--- Assistant Behaviour ---\n"
+                 f"{self.config.model_behaviour_context}\n\n"
+                 f"--- Current Context ---\n"
+                 f"{context_text}\n\n"
+                 f"--- User Query ---\n"
+                 f"{query}\n\n"
+                 f"--- Assistant Response ---\n",
+                 return_tensors="pt")
 
-
+        print(f"[DEBUG]: {prompt}")
 
         try:
             # Get the input_ids from the tokenized prompt
@@ -86,37 +88,43 @@ class LLMHandler:
         except Exception as e:
             yield f"\nError during generation: {str(e)}"
 
-   
+
     async def generate_conversation_stream(self, query: str, context: list, conversation_id: int = None) -> AsyncIterator[str]:
         """Stream tokens from the model in a conversation context."""
 
         if conversation_id is None:
             conversation_id = self.history.create_conversation()
+            print(f"Conversation ID: {conversation_id}")
 
-        print(f"Conversation ID: {conversation_id}")
-
+        # Handle nested context
         if context and isinstance(context[0], list):
             context = context[0]
 
+        context_text = "\n".join(context)
         conversation = self.history.get_conversation(conversation_id)
-
-        print(f"Conversation text: {conversation}")
-
         conversation_context = "\n".join([
             f"{message['role']}: {message['content']}" for message in conversation
         ])
 
-        prompt = self.tokenizer(f"Previous conversation:\n{conversation_context}\n\n"
-                  f"Behaviour: {self.config.model_behaviour_context}\n\n"
-                  f"Context:\n{context}\n\n"
-                  f"User: {query}\n"
-                                f"Assistant:", return_tensors="pt")
+        prompt = self.tokenizer(f"--- Previous Conversation ---\n"
+                  f"{conversation_context}\n\n"
+                  f"--- Assistant Behaviour ---\n"
+                  f"{self.config.model_behaviour_context}\n\n"
+                  f"--- Current Context ---\n"
+                  f"{context_text}\n\n"
+                  f"--- User Query ---\n"
+                  f"{query}\n\n"
+                  f"--- Assistant Response ---\n",
+                  return_tensors="pt")
+
+        print(f"[DEBUG]: {prompt}")
 
         self.history.add_message(conversation_id, "user", query)
 
         response = ""
 
         try:
+            # Using regular for loop since model returns a synchronous generator
             for token in self.model(
                     prompt,
                     max_new_tokens=self.config.model_max_new_tokens,
@@ -130,4 +138,3 @@ class LLMHandler:
             self.history.add_message(conversation_id, "assistant", response)
         except Exception as e:
             yield f"\nError during generation: {str(e)}"
-
