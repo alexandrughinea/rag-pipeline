@@ -101,6 +101,9 @@ LLM_MODEL_TYPE=llama
 LLM_MAX_TOKENS=512
 LLM_TEMPERATURE=0.7
 LLM_TOP_P=0.95
+
+# API Authentication
+API_KEY=your_secret_key_here
 ```
 
 ## Preparation
@@ -135,21 +138,25 @@ python src/main.py
 
 ```bash
 # Upload a document
-curl -X POST -F "file=@/path/to/document.pdf" http://localhost:8000/upload
+curl -X POST http://localhost:8000/upload \
+  -H "x-api-key: your_secret_key_here" \
+  -F "file=@document.pdf"
 ```
 
 #### 2. Search storage for similar documents:
 
 ```bash 
-curl -X GET http://localhost:8000/search?query=Test&limit=20
+curl -X GET http://localhost:8000/search?query=Test&limit=20 \
+  -H "x-api-key: your_secret_key_here"
 ```
 
 #### 3. Question example:
 
 ```bash 
 # Ask a question about the file
-curl -X POST -H "Content-Type: application/json"
-                -d '{"query": "What are the main points in the document?"}'
+curl -X POST -H "Content-Type: application/json" \
+  -H "x-api-key: your_secret_key_here" \
+  -d '{"query": "What are the main points in the document?"}' \
   http://localhost:8000/query/stream
 ```
 
@@ -157,13 +164,15 @@ curl -X POST -H "Content-Type: application/json"
 
 ```bash 
 # Start new conversation
-curl -X POST -H "Content-Type: application/json"
-                -d '{"query": "What are the main points in the document?"}'
+curl -X POST -H "Content-Type: application/json" \
+  -H "x-api-key: your_secret_key_here" \
+  -d '{"query": "What are the main points in the document?"}' \
   http://localhost:8000/query/conversation-stream
 
 # Continue conversation with ID
-curl -X POST -H "Content-Type: application/json"
-                -d '{"query": "Can you elaborate on the first point?", "conversation_id": 1}'
+curl -X POST -H "Content-Type: application/json" \
+  -H "x-api-key: your_secret_key_here" \
+  -d '{"query": "Can you elaborate on the first point?", "conversation_id": 1}' \
   http://localhost:8000/query/conversation-stream
 ```
 
@@ -171,10 +180,29 @@ curl -X POST -H "Content-Type: application/json"
 
 ```bash 
 # Retrieve query history
-curl -X GET http://localhost:8000/history?limit=5
+curl -X GET http://localhost:8000/history?limit=5 \
+  -H "x-api-key: your_secret_key_here"
 ```
 
 ## Configuration
+
+### API Authentication
+- The API is protected with an API key
+- Set the `API_KEY` environment variable in your `.env` file:
+  ```bash
+  API_KEY=your_secret_key_here
+  ```
+- Include the API key in requests using the `x-api-key` header:
+  ```bash
+  curl -X POST http://localhost:8000/upload \
+    -H "x-api-key: your_secret_key_here" \
+    -F "file=@document.pdf"
+  ```
+
+### Hardware Requirements
+- Apple Silicon (M1/M2) or Intel CPU
+- 16 GB RAM (32 GB recommended)
+- 1 TB Storage (2 TB recommended)
 
 ### Vector Store
 - `VECTOR_STORAGE_DIR`: Location for persistent storage
