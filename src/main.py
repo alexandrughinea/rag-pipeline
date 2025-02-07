@@ -111,18 +111,18 @@ async def upload_file(
 
         return JSONResponse(
             status_code=200,
-            content={ "message": f"Original file ({file.filename}) was processed successfully."}
+            content={"message": f"Original file ({file.filename}) was processed successfully."}
         )
 
     except Exception as e:
         print(f"Error while processing file: {str(e)}")
-
         return JSONResponse(
             status_code=500,
-            content={ "error": f"Something went wrong while uploading file ({file.filename})!"}
+            content={"error": f"Something went wrong while uploading file ({file.filename})!"}
         )
 
     finally:
+        # Clean up the temporary file
         os.unlink(temp_path)
 
 @app.get("/search")

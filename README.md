@@ -1,6 +1,6 @@
 # RAG Pipeline
 
-A production-ready Retrieval Augmented Generation (RAG) pipeline that processes various document types, generates embeddings, and provides a conversation interface using local LLMs.
+A production-ready Retrieval Augmented Generation (RAG) pipeline that processes various document types, generates embeddings, and provides a conversation interface using local LLMs (including llama 3.1)
 
 ## Features
 
@@ -20,7 +20,7 @@ A production-ready Retrieval Augmented Generation (RAG) pipeline that processes 
 - Video frame analysis with relevance filtering
 
 ### Embedding Generation
-- Configurable embedding models
+- Configurable embedding models ()
 - Efficient text chunking
 - Batched processing for large documents
 - Model dimension validation
@@ -31,8 +31,8 @@ A production-ready Retrieval Augmented Generation (RAG) pipeline that processes 
 - Metadata tracking
 - Dimension compatibility checks
 
-### Local Inference
-- Support for GGUF models
+### Private Local Inference
+- Support any model which is supported by transformers
 - Metal acceleration for Apple Silicon
 - Configurable inference parameters
 - Conversation history tracking
@@ -119,6 +119,27 @@ huggingface-cli download TheBloke/Llama-2-7B-Chat-GGUF
 
 ```env
 LLM_MODEL_PATH_OR_REPO_ID=TheBloke/Llama-2-7B-Chat-GGUF
+LLM_MODEL_TYPE=llama
+```
+
+### 3. Define the LLMs behaviour
+```env
+LLM_MODEL_BEHAVIOUR_CONTEXT=...
+```
+
+## Preparation
+
+### 1. Get your LLM model from huggingface
+
+```bash
+huggingface-cli login --token YOUR_ACCESS_TOKEN
+huggingface-cli download meta-llama/Llama-3.1-8B
+```
+
+### 2. Update your .env with the chosen LLM model and type
+
+```env
+LLM_MODEL_PATH_OR_REPO_ID=meta-llama/Llama-3.1-8B
 LLM_MODEL_TYPE=llama
 ```
 

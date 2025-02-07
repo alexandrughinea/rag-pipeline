@@ -1,7 +1,9 @@
+import os
 from pathlib import Path
 from typing import AsyncIterator
 
-from ctransformers import AutoConfig, AutoModelForCausalLM
+import torch
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .llm_config import LLMConfig
 from .llm_history import LLMHistory
@@ -23,96 +25,144 @@ class LLMHandler:
         # Create config first
         config = AutoConfig.from_pretrained(
             self.config.model_pretrained_model_name_or_path,
-            threads=self.config.model_cpu_threads,
-            context_length=self.config.model_context_length,
+            trust_remote_code=True,
+            cache_dir=self.config.model_cache_dir,
         )
 
-        # Use config when loading model
+        # Config not needed here
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.config.model_pretrained_model_name_or_path,
+            trust_remote_code=True,
+        )
+        
+        # Ensure we have a pad token
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        # Load model with basic optimizations
         self.model = AutoModelForCausalLM.from_pretrained(
             self.config.model_pretrained_model_name_or_path,
-            cache_dir_dir_path=self.config.model_cache_dir,
-            model_type=self.config.model_type,
-            model_file=self.config.model_file,
             config=config,
+            trust_remote_code=True,
+            torch_dtype=torch.float16,
+            device_map="auto",
+            token=os.getenv("HF_TOKEN", None)
         )
 
         self.history = LLMHistory()
 
     async def generate_stream(self, query: str, context: list[str]) -> AsyncIterator[str]:
         """Stream tokens from the model."""
-
         if context and isinstance(context[0], list):
             context = context[0]
 
         context_text = "\n".join(context)
 
-        prompt =(f"--- Assistant Behaviour ---\n"
-                 f"{self.config.model_behaviour_context}\n\n"
-                 f"--- Current Context ---\n"
-                 f"{context_text}\n\n"
-                 f"--- User Query ---\n"
-                 f"{query}\n\n"
-                 f"--- Assistant Response ---\n")
+        # Create a chat-like format
+        prompt = (
+            f"### System:\n{self.config.model_behaviour_context}\n\n"
+            f"### Context:\n{context_text}\n\n"
+            f"### User:\n{query}\n\n"
+            f"### Assistant:\n"
+        )
 
-        print(f"[DEBUG]: {prompt}")
+        input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.model.device)
 
         try:
-            for token in self.model(
-                    prompt,
-                    max_new_tokens=self.config.model_max_new_tokens,
-                    temperature=self.config.model_temperature,
-                    top_p=self.config.model_top_p,
-                    stream=True
-            ):
-                yield token
+            outputs = self.model.generate(
+                input_ids,
+                max_new_tokens=self.config.model_max_new_tokens,
+                temperature=self.config.model_temperature,
+                top_p=self.config.model_top_p,
+                do_sample=True,
+                repetition_penalty=1.1,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+                return_dict_in_generate=True,
+                output_scores=False
+            )
+            
+            # Get the generated sequence
+            generated_sequence = outputs.sequences[0]
+            
+            # Get the length of input tokens to skip them in the output
+            input_length = len(input_ids[0])
+            
+            # Get only the newly generated tokens
+            generated_tokens = generated_sequence[input_length:]
+            
+            # Decode tokens one by one and yield them
+            for i in range(len(generated_tokens)):
+                token = generated_tokens[i:i+1]
+                token_text = self.tokenizer.decode(token, skip_special_tokens=True)
+                if token_text:
+                    yield token_text
+
         except Exception as e:
             yield f"\nError during generation: {str(e)}"
 
     async def generate_conversation_stream(self, query: str, context: list, conversation_id: int = None) -> AsyncIterator[str]:
         """Stream tokens from the model in a conversation context."""
-
         if conversation_id is None:
             conversation_id = self.history.create_conversation()
             print(f"Conversation ID: {conversation_id}")
 
-        # Handle nested context
         if context and isinstance(context[0], list):
             context = context[0]
 
         context_text = "\n".join(context)
+
+        # Get conversation history
         conversation = self.history.get_conversation(conversation_id)
         conversation_context = "\n".join([
             f"{message['role']}: {message['content']}" for message in conversation
         ])
 
-        prompt = (f"--- Previous Conversation ---\n"
-                  f"{conversation_context}\n\n"
-                  f"--- Assistant Behaviour ---\n"
-                  f"{self.config.model_behaviour_context}\n\n"
-                  f"--- Current Context ---\n"
-                  f"{context_text}\n\n"
-                  f"--- User Query ---\n"
-                  f"{query}\n\n"
-                  f"--- Assistant Response ---\n")
+        prompt = (
+            f"### Previous Conversation:\n{conversation_context}\n\n"
+            f"### System:\n{self.config.model_behaviour_context}\n\n"
+            f"### Context:\n{context_text}\n\n"
+            f"### User:\n{query}\n\n"
+            f"### Assistant:\n"
+        )
 
-        print(f"[DEBUG]: {prompt}")
+        input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.model.device)
 
         self.history.add_message(conversation_id, "user", query)
-
         response = ""
 
         try:
-            # Using regular for loop since model returns a synchronous generator
-            for token in self.model(
-                    prompt,
-                    max_new_tokens=self.config.model_max_new_tokens,
-                    temperature=self.config.model_temperature,
-                    top_p=self.config.model_top_p,
-                    stream=True
-            ):
-                response += token
-                yield token
+            outputs = self.model.generate(
+                input_ids,
+                max_new_tokens=self.config.model_max_new_tokens,
+                temperature=self.config.model_temperature,
+                top_p=self.config.model_top_p,
+                do_sample=True,
+                repetition_penalty=1.1,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+                return_dict_in_generate=True,
+                output_scores=False
+            )
+            
+            # Get the generated sequence
+            generated_sequence = outputs.sequences[0]
+            
+            # Get the length of input tokens to skip them in the output
+            input_length = len(input_ids[0])
+            
+            # Get only the newly generated tokens
+            generated_tokens = generated_sequence[input_length:]
+            
+            # Decode tokens one by one and yield them
+            for i in range(len(generated_tokens)):
+                token = generated_tokens[i:i+1]
+                token_text = self.tokenizer.decode(token, skip_special_tokens=True)
+                if token_text:
+                    yield token_text
+                    response += token_text
+                    
+            self.history.add_message(conversation_id, "assistant", response.strip())
 
-            self.history.add_message(conversation_id, "assistant", response)
         except Exception as e:
             yield f"\nError during generation: {str(e)}"
