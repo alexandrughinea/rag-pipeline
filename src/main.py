@@ -18,10 +18,8 @@ from starlette.responses import JSONResponse
 from utils import clamp
 from vector_store.vector_store import VectorStore
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Get API key from environment
 API_KEY = os.getenv("API_KEY")
 if not API_KEY:
     raise ValueError("API_KEY environment variable must be set")
@@ -45,7 +43,6 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# Initialize components
 llm_handler = LLMHandler()
 doc_processor = FileProcessor()
 embeddings_generator = EmbeddingsGenerator()
@@ -62,26 +59,22 @@ async def upload_file(
     api_key: str = Depends(get_api_key)
 ):
     """Upload and process a document."""
-    # Debug print for clarity
     print(f"Original filename: {file.filename}")
 
-    # Extract extension with leading dot
     suffix = os.path.splitext(file.filename)[1].lower()
     print(f"Detected extension: {suffix}")
 
-    # Ensure suffix starts with dot
     if not suffix.startswith('.'):
         suffix = f'.{suffix}'
 
     print(f"Using suffix: {suffix}")
 
-    # Create temporary file
+
     temp_fd, temp_path = tempfile.mkstemp(suffix=suffix)
+
     try:
-        # Read content from upload
         content = await file.read()
 
-        # Write content to temporary file
         with os.fdopen(temp_fd, 'wb') as temp_file:
             temp_file.write(content)
 
@@ -96,12 +89,11 @@ async def upload_file(
                 content={"error": "No text extracted from file"}
             )
 
-        # Generate embeddings
         embeddings, chunks = embeddings_generator.generate_embeddings(text)
 
         print(f"Embeddings: {embeddings}")
+        print(f"Chunks: {chunks}")
 
-        # Store in vector database
         source_info = {
             "filename": file.filename,
             "file_type": suffix[1:],
@@ -122,7 +114,6 @@ async def upload_file(
         )
 
     finally:
-        # Clean up the temporary file
         os.unlink(temp_path)
 
 @app.get("/search")
@@ -155,13 +146,9 @@ async def query_stream(
     media_type = "text/event-stream"
 
     try:
-        # Generate embeddings for query
         embeddings, _ = embeddings_generator.generate_embeddings(request.query)
-
-        # Get relevant documents
         results = vector_store.query(embeddings[0], request.n_results)
 
-        # If no relevant documents found
         if not results["documents"]:
             return StreamingResponse(
                 iter(["No relevant documents found for your query."]),
@@ -175,7 +162,6 @@ async def query_stream(
             ):
                 yield f"data: {token}\n\n"
 
-            # Record query after completion
             duration = time.time() - start_time
 
             query_history.add_query(
@@ -205,13 +191,10 @@ async def query_conversation_stream(
     media_type = "text/event-stream"
 
     try:
-        # Generate embeddings for query
         embeddings, _ = embeddings_generator.generate_embeddings(request.query)
 
-        # Get relevant documents
         results = vector_store.query(embeddings[0], request.n_results)
 
-        # If no relevant documents found
         if not results["documents"]:
             return StreamingResponse(
                 iter(["No relevant documents found for your query."]),
@@ -230,7 +213,6 @@ async def query_conversation_stream(
                     prepend_conversation_id = False
                 yield f"data: {token}\n\n"
 
-            # Record query after completion
             duration = time.time() - start_time
 
             query_history.add_query(
@@ -272,11 +254,9 @@ if __name__ == "__main__":
 
     import uvicorn
 
-    # Get values with defaults
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8000"))
 
     uvicorn.run(app, host=host, port=port)
 
-    # Mount static files
     app.mount("/static", StaticFiles(directory="static"), name="static")

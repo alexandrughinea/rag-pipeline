@@ -80,7 +80,6 @@ class FileProcessor:
 
     def _process_video(self, file_path: str) -> str:
         try:
-            # 1 frame per second for 30fps video
             video_processor = VideoProcessor()
             frames = video_processor.extract_frames(file_path)
             return video_processor.process_frames(frames)

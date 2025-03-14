@@ -27,12 +27,16 @@ class VideoProcessor:
 
     def _is_relevant(self, frame: np.ndarray) -> bool:
         """Check if frame contains useful content"""
-        if np.mean(frame) < 30:  # Too dark
+
+        # Not bright enough - compare how dark the image is:
+        if np.mean(frame) < 30:
             return False
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 100, 200)
-        if np.count_nonzero(edges) < 1000:  # Not enough edges/content
+
+        # Bail out, if not enough edges (potential detail to extract during inference)
+        if np.count_nonzero(edges) < 500:
             return False
 
         return True
@@ -42,7 +46,6 @@ class VideoProcessor:
         if not cap.isOpened():
             raise ValueError(f"Failed to open video file: {video_path}")
 
-        # Get video properties
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
         duration = total_frames / fps
@@ -72,7 +75,6 @@ class VideoProcessor:
                 scale = self.max_dimension / max(width, height)
                 frame = cv2.resize(frame, None, fx=scale, fy=scale)
 
-            # Check relevance and similarity
             if self._is_relevant(frame):
                 if prev_frame is None or not self._is_similar(frame, prev_frame):
                     frames.append(frame)
@@ -93,14 +95,11 @@ class VideoProcessor:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             denoised = cv2.fastNlMeansDenoising(gray)
 
-            # Improve contrast
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
             enhanced = clahe.apply(denoised)
 
-            # Get OCR data
             data = pytesseract.image_to_data(enhanced, output_type=pytesseract.Output.DICT)
 
-            # Skip frames with no text
             if all(text == '' for text in data['text']):
                 print(f"Skipping frame {i} - no text detected")
                 continue
@@ -109,10 +108,13 @@ class VideoProcessor:
             for j, conf in enumerate(data['conf']):
                 if conf > self.min_text_confidence:
                     text = data['text'][j].strip()
-                    if text and len(text) > 1:  # Skip single characters
+
+                    # Skip single characters - can be challenged
+                    if text and len(text) > 1:
                         frame_text.append(text)
 
-            if frame_text:  # Only add frames that have valid text
+            # Only add frames that have some valid text
+            if frame_text:
                 texts.append(' '.join(frame_text))
 
         return '\n'.join(texts)

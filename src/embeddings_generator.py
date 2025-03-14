@@ -24,7 +24,6 @@ class EmbeddingsGenerator:
 
         embeddings = self.model.encode(chunks)
 
-        # Validate embeddings
         if embeddings.size == 0:
             raise ValueError("Generated embeddings are empty")
 
@@ -41,7 +40,6 @@ class EmbeddingsGenerator:
                                width=self.chunk_size,
                                break_long_words=False)
 
-        # Filter out empty chunks
         chunks = [chunk for chunk in chunks if chunk.strip()]
 
         print(f"Created {len(chunks)} chunks")

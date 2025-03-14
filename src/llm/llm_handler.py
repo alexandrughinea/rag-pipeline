@@ -14,32 +14,26 @@ class LLMHandler:
     def __init__(self):
         self.config = LLMConfig()
 
-        # Ensure model exists
         if not self.config.model_pretrained_model_name_or_path:
             raise Exception(f"Model not found: {self.config.model_pretrained_model_name_or_path}")
 
-        # Create cache dir
         cache_dir_dir_path = Path(self.config.model_cache_dir)
         cache_dir_dir_path.mkdir(exist_ok=True)
 
-        # Create config first
         config = AutoConfig.from_pretrained(
             self.config.model_pretrained_model_name_or_path,
             trust_remote_code=True,
             cache_dir=self.config.model_cache_dir,
         )
 
-        # Config not needed here
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.config.model_pretrained_model_name_or_path,
             trust_remote_code=True,
         )
-        
-        # Ensure we have a pad token
+
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
-        # Load model with basic optimizations
         self.model = AutoModelForCausalLM.from_pretrained(
             self.config.model_pretrained_model_name_or_path,
             config=config,
@@ -58,7 +52,6 @@ class LLMHandler:
 
         context_text = "\n".join(context)
 
-        # Create a chat-like format
         prompt = (
             f"### System:\n{self.config.model_behaviour_context}\n\n"
             f"### Context:\n{context_text}\n\n"
@@ -81,17 +74,13 @@ class LLMHandler:
                 return_dict_in_generate=True,
                 output_scores=False
             )
-            
-            # Get the generated sequence
+
             generated_sequence = outputs.sequences[0]
-            
-            # Get the length of input tokens to skip them in the output
+
             input_length = len(input_ids[0])
-            
-            # Get only the newly generated tokens
+
             generated_tokens = generated_sequence[input_length:]
-            
-            # Decode tokens one by one and yield them
+
             for i in range(len(generated_tokens)):
                 token = generated_tokens[i:i+1]
                 token_text = self.tokenizer.decode(token, skip_special_tokens=True)
@@ -112,7 +101,6 @@ class LLMHandler:
 
         context_text = "\n".join(context)
 
-        # Get conversation history
         conversation = self.history.get_conversation(conversation_id)
         conversation_context = "\n".join([
             f"{message['role']}: {message['content']}" for message in conversation
@@ -144,17 +132,13 @@ class LLMHandler:
                 return_dict_in_generate=True,
                 output_scores=False
             )
-            
-            # Get the generated sequence
+
             generated_sequence = outputs.sequences[0]
-            
-            # Get the length of input tokens to skip them in the output
+
             input_length = len(input_ids[0])
-            
-            # Get only the newly generated tokens
+
             generated_tokens = generated_sequence[input_length:]
-            
-            # Decode tokens one by one and yield them
+
             for i in range(len(generated_tokens)):
                 token = generated_tokens[i:i+1]
                 token_text = self.tokenizer.decode(token, skip_special_tokens=True)

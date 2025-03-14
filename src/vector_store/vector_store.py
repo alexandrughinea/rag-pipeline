@@ -11,25 +11,22 @@ class VectorStore:
         persistence_dir_path = Path(persistence_dir)
         persistence_dir_path.mkdir(exist_ok=True)
 
-        # Convert string path to Path object and ensure it's a string when passed
         persist_dir = Path(persistence_dir_path).resolve()
         self.client = chromadb.PersistentClient(path=str(persist_dir))
 
-        # Get embedding dimension from model
         model_dimension = len(embeddings_generator.model.encode("test"))
 
         try:
-            # Try to get existing collection
             self.collection = self.client.get_collection(name=collection_name)
+
+            # If dimensions don't match, recreate collection:
             if self.collection.metadata.get("dimension") != model_dimension:
-                # If dimensions don't match, recreate collection
                 self.client.delete_collection(collection_name)
                 self.collection = self.client.create_collection(
                     name=collection_name,
                     metadata={"dimension": model_dimension}
                 )
         except Exception:
-            # Create new collection with dimension metadata
             self.collection = self.client.create_collection(
                 name=collection_name,
                 metadata={"dimension": model_dimension}
@@ -45,7 +42,7 @@ class VectorStore:
 
         total_chunks = len(document_chunks)
 
-        # Process in batches
+        # Batches:
         for i in range(0, total_chunks, max_batch_size):
             batch_end = min(i + max_batch_size, total_chunks)
 
