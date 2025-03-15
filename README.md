@@ -1,6 +1,6 @@
 # RAG Pipeline
 
-A production-ready Retrieval Augmented Generation (RAG) pipeline that processes various document types, generates embeddings, and provides a conversation interface using local LLMs (including llama 3.1)
+A Retrieval Augmented Generation (RAG) pipeline built with FastAPI, ChromaDB, and the Transformers library, designed to process various file types, extract their content, generate embeddings, and enhance information retrieval.
 
 ## Features
 
